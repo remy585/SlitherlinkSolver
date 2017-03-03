@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html> 
+	<head> 
+		<title>Slitherlink Solver</title> 
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+		<script src="SlitherlinkSetup.js" type="text/javascript"></script>
+		<script src="SlitherlinkSolver.js" type="text/javascript"></script> 
+		<script src="SlitherlinkUnitTests.js" type="text/javascript"></script> 
+		<meta charset="utf-8"/>
+	</head> 
+	<body>
+		<div id="Input">
+			<h2>Slitherlink Solver:</h2>
+			<div id="BoardDimensions" class="box">
+				<h3>Board dimensions:</h3>
+				<div>
+					<label>Board type:</label>
+					<select id="BoardType">
+						<option value="4">Squares</option>
+						<option value="3">Triangles</option>
+						<option value="6">Hexagons</option>
+					</select>
+				</div>
+				<div>
+					<label>Width:</label>
+					<input type="number" id="BoardWidth"></input>
+				</div>
+				<div>
+					<label>Height:</label>
+					<input type="number" id="BoardHeight"></input>
+				</div>
+				<button type="button" id="EnterBoardDimensions">OK</button>
+			</div>
+			<div>
+				<input type="checkbox" id="DeleteCells">Delete Cells</input>
+			</div>
+			<div id="BoardContent" class="box">
+				<h3>Enter known numbers:</h3>
+				<div id="BoardContentInput">
+					<div>
+						<label>Click cells that have value:</label>
+						<input type="number" id="EnterCellValue" value="0"></input>
+					<div>
+					<canvas id="BoardCanvas" width="200" height="100"></canvas>
+					
+				</div>
+				<button type="button" id="StepBackButton">Step Back</button>
+				<button type="button" id="StepButton">Step</button>
+				<button type="button" id="SolveButton">Solve</button>
+				
+			</div>
+			<div>
+			<span id="Thinking">Thinking...</span>
+			<span id="GuessDepth"></span>
+			</div>
+			<div id="Time"></div>
+			<div>
+				<h3>Enter saved board</h3>
+				<input type="text" id="SavedBoardInput" value="">
+				<button type="button" id="EnterSavedBoard">Enter</button>
+				<button type="button" id="GetBoard">Get Board</button>
+			</div>
+			
+		</div>
+	</body>
+</html>
