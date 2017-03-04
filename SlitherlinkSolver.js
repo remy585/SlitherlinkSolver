@@ -3,6 +3,7 @@
 // TODO: Make the validity checker only look at cells/marks/corners directly around the change?
 // TODO: guesses only re-itterate through the marks that didn't fail out early the last time
 // TODO: time each guess and report on average guess times?
+// TODO: perhaps aGuessHasBeenMade should be a global variable instead of passing it around all the time?
 
 var SLSolver = {
 	// Parent object of Cell and Dot. Handles logic of keeping track of Marks
@@ -13,12 +14,14 @@ var SLSolver = {
 		this.NumUnmarked = 0;
 		this.IsFull = false;
 		
+		// Adds a mark to this object
 		// TODO: What if mark is coming in pre-marked? Need to update counts...
 		this.AddMark = function(mark) {
 			this.Marks[this.Marks.length] = mark;
 			this.NumUnmarked++;
 		};
 		
+		// Checks if this object contains the mark
 		this.ContainsMark = function(mark) {
 			for (var i = 0; i < this.Marks.length; i++) {
 				if (this.Marks[i].Id == mark.Id) return true;
@@ -27,24 +30,28 @@ var SLSolver = {
 			return false;
 		};
 		
+		// Called when one of the marks is marked as a line
 		this.LineAdded = function() {
 			this.NumLines++;
 			this.IsFull = this.NumLines + this.NumXs == this.Marks.length;
 			this.NumUnmarked--;
 		};
 		
+		// Called when one of the marks is marked as an x
 		this.XAdded = function() {
 			this.NumXs++;
 			this.IsFull = this.NumLines + this.NumXs == this.Marks.length;
 			this.NumUnmarked--;
 		};
 		
+		// Called when one of the line marks is un-marked
 		this.LineErased = function() {
 			this.NumLines--;
 			this.IsFull = this.NumLines + this.NumXs == this.Marks.length;
 			this.NumUnmarked++;
 		};
 		
+		// Called when one of the x marks is un-marked
 		this.XErased = function() {
 			this.NumXs--;
 			this.IsFull = this.NumLines + this.NumXs == this.Marks.length;
@@ -52,18 +59,21 @@ var SLSolver = {
 		};
 	},
 	
-	// Defines the object that represents a puzzle cell that may or maynot have a number inside of it and that, in the end, will be surrounded by lines or 'x's. 
+	// Defines the object that represents a puzzle cell that may or maynot have a number inside of it and that, in the end, will be surrounded by lines or 'x's.
+	// Child of MarkableObject
 	Cell: function(id, value) {
 		this.__proto__ = new SLSolver.MarkableObject();
 		this.Id = id;
 		this.Value = value; // Could be a number or null
-		this.Side = -1;
+		this.Side = -1; // as in "inside" or "outside"
 		this.SideBeforeGuess = -1;
 		
+		// Checks if this cell is valid. Can only check validity if the cell has a value
 		this.IsValid = function() {
 			return !(this.Value != null && (this.NumLines > this.Value || this.Marks.length - this.NumXs < this.Value));
 		};
 		
+		// Sets the side of this cell
 		// returns true if anything was actually changed
 		this.SetSide = function(side, isBasedOnGuess) {
 			var changeMade = false;
@@ -105,6 +115,7 @@ var SLSolver = {
 		this.X = x;
 		this.Y = y;
 		
+		// A dot is valid if there are 0 lines, 2 lines, or 1 line with one or more empty spaces
 		this.IsValid = function() {
 			return !(this.NumLines > 2 || (this.NumLines == 1 && this.IsFull));
 		};
@@ -113,12 +124,15 @@ var SLSolver = {
 	// Defines the object that, at the end of the puzzle, will be either a line or an 'x'
 	Mark: function(id) {
 		this.Id = id;
-		this.Cells = [];
-		this.Dots = [];
+		this.Cells = []; // should have 1 or 2 cells
+		this.Dots = [];  // should have exactly 2 dots
 		this.IsMarked = false;
 		this.IsLine = false;
 		this.IsBasedOnGuess = false;
 		
+		// return the companion side to the specified side
+		// 0 and 1 go together, 2 and 3 go together etc
+		// this function is also in the parent Solver object, but I couldn't figure out how to make this object talk to those external functions
 		this.GetOppositeSide = function(side) {
 			if (side % 2 == 0) {
 				return side + 1;	
@@ -127,14 +141,17 @@ var SLSolver = {
 			}
 		};
 		
+		// Add a dot to this mark
 		this.AddDot = function(dot) {
 			this.Dots[this.Dots.length] = dot;
 		};
 		
+		// Add a cell to this mark
 		this.AddCell = function(cell) {
 			this.Cells[this.Cells.length] = cell;
 		};
 		
+		// checks if the mark contains the specified dot
 		this.ContainsDot = function(dot) {
 			for (var i = 0; i < this.Dots.length; i++) {
 				if (this.Dots[i].Id == dot.Id) return true;
@@ -143,6 +160,7 @@ var SLSolver = {
 			return false;
 		};
 		
+		// checks if the cell contains thte specified cell
 		this.ContainsCell = function(cell) {
 			for (var i = 0; i < this.Cells.length; i++) {
 				if (this.Cells[i].Id == cell.Id) return true;
@@ -151,6 +169,8 @@ var SLSolver = {
 			return false;
 		};
 		
+		// returns the other cell that's associated with this mark that's not the specified cell
+		// if the mark only has one cell, then it returns null
 		this.TheOtherCell = function(cell) {
 			for (var i = 0; i < this.Cells.length; i++) {
 				if (this.Cells[i].Id != cell.Id) return this.Cells[i];	
@@ -159,6 +179,7 @@ var SLSolver = {
 			return null;	
 		};
 		
+		// returns the other dot that's associated with this mark that's not the specified dot
 		this.TheOtherDot = function(dot) {
 			for (var i = 0; i < this.Dots.length; i++) {
 				if (this.Dots[i].Id != dot.Id) return this.Dots[i];
@@ -168,6 +189,8 @@ var SLSolver = {
 			return null;	
 		};
 		
+		// mark this mark as a line
+		// currentSidePairCount is maintianed by the solver
 		this.MarkLine = function(isBasedOnGuess, currentSidePairCount) {
 			this.IsMarked = true;
 			this.IsLine = true;
@@ -196,6 +219,8 @@ var SLSolver = {
 			return currentSidePairCount;
 		};
 		
+		// mark this mark as an x
+		// currentSidePairCount is maintianed by the solver
 		this.MarkX = function(isBasedOnGuess, currentSidePairCount) {
 			this.IsMarked = true;
 			this.IsLine = false;
@@ -224,6 +249,7 @@ var SLSolver = {
 			return currentSidePairCount;
 		};
 		
+		// erase this mark if it was marked
 		this.ClearMark = function() {
 			if (!this.IsMarked) {
 				return;
@@ -252,18 +278,18 @@ var SLSolver = {
 		};
 	},
 	
-	// I've decided to make these simple arrays rather than matrixes because in the non-4-sided case it will be difficult to translate the layout of cells into a grid
 	Cells: [],
 	Dots: [],
 	Marks: [],
 	NumMarkedMarks: 0,
-	MIN_GUESSING_DEPTH: 5,
-	MAX_GUESSING_DEPTH: 1000,
 	MaxGuessingDepthReached: -1,
 	ChangeMade: false,
 	SidePairCount: 0,
-	JustChangedMarks: [],
+	JustChangedMarks: [], // this is used when guessing so that subsequent logic rules can just look at the changed areas, and therefore be faster
 	
+	// Solve the board as far as we can go using logic
+	// takes a board object that contains {Cells, Dots, Marks}
+	// if step is true only makes one logical step
 	Solve: function(board, step) {
 		this.Cells = board.Cells;
 		this.Dots = board.Dots;
@@ -287,17 +313,224 @@ var SLSolver = {
 		return board;
 	},
 	
-	//TODO: according to the performance analyser ApplyInsideOutsideLogic is being called first... maybe?
+	// Runs all the logic rules I know without making any guesses
+	// Returns as soon as one of the logic rules results in a change
 	RunBasicLogic: function(aGuessHasBeenMade) {
-		var changeMade = this.CompleteCells(aGuessHasBeenMade);
-		changeMade = changeMade || this.CompleteDots(aGuessHasBeenMade);
-		changeMade = changeMade || this.ApplyInsideOutsideLogic(aGuessHasBeenMade);
-		changeMade = changeMade || this.KeepLoopsOpen(aGuessHasBeenMade);
+		var changeMade = this.CompleteCells(aGuessHasBeenMade) ||
+						 this.CompleteDots(aGuessHasBeenMade) ||
+						 this.ApplySideLogic(aGuessHasBeenMade) ||
+						 this.KeepLoopsOpen(aGuessHasBeenMade);
 		
-		var isValid = this.IsValidBoard();
 		return changeMade;
 	},
 	
+	// Goes through all the cells and checks if you can make any moves based on the cell's value
+	// For example:
+	// This will mark all the marks around a cell with a "0" value with 'x's
+	// This will mark the last un-marked mark of a cell with a "1" value with a line if all the other marks are 'x's
+	CompleteCells: function(aGuessHasBeenMade) {
+		var changeMade = false;
+		for (var i = 0; i < this.Cells.length; i++) {
+			var cell = this.Cells[i];
+			
+			if (!cell.IsFull && cell.Value != null) {
+				// mark the rest x's
+				if (cell.Value == cell.NumLines) {
+					for (var m = 0; m < cell.Marks.length; m++) {
+						var mark = cell.Marks[m];
+						if (!mark.IsMarked) {
+							this.MarkX(mark, aGuessHasBeenMade);
+							changeMade = true;
+						}
+					}
+				}
+			
+				// mark the rest lines
+				if (cell.Value == cell.Marks.length - cell.NumXs) {
+					for (var m = 0; m < cell.Marks.length; m++) {
+						var mark = cell.Marks[m];
+						if (!mark.IsMarked) {
+							this.MarkLine(mark, aGuessHasBeenMade);
+							changeMade = true;
+						}
+					}
+				}
+			}
+		}
+		
+		return changeMade;
+	},
+	
+	// Goes through all the dots and checks if you can make any moves based on the fact that a completed dot can either have 0 or 2 lines
+	CompleteDots: function(aGuessHasBeenMade) {
+		var changeMade = false;
+		
+		for (var i = 0; i < this.Dots.length; i++) {
+			var dot = this.Dots[i];
+			if (!dot.IsFull) {
+				var fillTheRest = false;
+				var fillWithXs = false;
+				if (dot.NumLines == 2 || dot.NumXs == dot.Marks.length - 1) {
+					// fill the rest with x's
+					fillTheRest = true;
+					fillWithXs = true;
+				} else if (dot.NumLines == 1 && dot.NumXs == dot.Marks.length - 2) {
+					// fill the last spot with a line
+					fillTheRest = true;
+					fillWithXs = false;
+				}
+				
+				if (fillTheRest) {
+					for (var m = 0; m < dot.Marks.length; m++) {
+						var mark = dot.Marks[m];
+						if (!mark.IsMarked) {
+							if (fillWithXs) {
+								this.MarkX(mark, aGuessHasBeenMade);
+							} else {
+								this.MarkLine(mark, aGuessHasBeenMade);
+							}
+						}
+					}
+					
+					changeMade = true;
+				}
+			}
+		}
+		
+		return changeMade;
+	},
+	
+	// if the cell's an outside cell (Side == 0) and on the edge, mark an x
+	// if the cells an inside cell (Side == 1) and on the edge, mark a line
+				
+	// if the cells on either side of a mark are the same, mark an x
+	// if the cells on either side of a mark are different (but in the same side family), mark a line
+				
+	// using a cell's value and the counts of various sides valuse of it's neighbors we can make some marks
+	// for example: 
+	// if a cell with 4 sides and a value of 3 has 2 or more neighbors with the same side value, mark lines between the cell and those neighbors
+	ApplySideLogic: function(aGuessHasBeenMade) {
+		var changeMade = false;
+		
+		// fill arrays of what cells and marks to apply this logic on using JustChangedMarks
+		// if there's nothing in JustChangedMarks (meaning we haven't been guessing) then check everything
+		// this check shaves 2 minutes off of a tricky puzzle
+		var cellIdsToCheck = [];
+		var markIdsToCheck = [];
+		if (this.JustChangedMarks.length > 0) {
+			for (var i = 0; i < this.JustChangedMarks.length; i++) {
+				var mark = this.JustChangedMarks[i];
+				for (var j = 0; j < mark.Cells.length; j++) {
+					var cell = mark.Cells[j];
+					cellIdsToCheck[cell.Id] = true;
+					for (var k = 0; k < cell.Marks.length; k++) {
+						markIdsToCheck[cell.Marks[k].Id] = true;
+					}	
+				}
+			}
+		} else {
+			cellIdsToCheck = new Array(this.Cells.length);
+			markIdsToCheck = new Array(this.Marks.length);
+			cellIdsToCheck.fill(true);
+			markIdsToCheck.fill(true);
+		}
+		
+		// Set side based on counts of side values in neighboring cells
+		for (var i = 0; i < cellIdsToCheck.length; i++) {
+			if (cellIdsToCheck[i] && this.Cells[i].Value != null && !this.Cells[i].IsFull) {
+				var cell = this.Cells[i];
+				var sideCounts = [];
+				for (var j = 0; j < cell.Marks.length; j++) {
+					var otherCell = cell.Marks[j].TheOtherCell(cell);
+					var otherSide = otherCell != null ? otherCell.Side : 0;
+					if (otherSide > -1) {
+						if (!sideCounts[otherSide]) {
+							sideCounts[otherSide] = 0;
+						} 
+						
+						sideCounts[otherSide]++;
+					}
+				}
+				
+				// if there are more than cell.Value cells adjacent to this one with the same side value, then this cell must be on the same side
+				// if there are more than numSides - value cells adjacent to this one with the same side value, then this cell must be on the opposite side
+				for (var j = 0; j < sideCounts.length; j++) {
+					if (sideCounts[j]) {
+						var sideCount = sideCounts[j];
+						if (sideCount > cell.Value) {
+							cell.SetSide(j, aGuessHasBeenMade);
+						} else if ((cell.Marks.length - cell.Value) < sideCount) {
+							cell.SetSide(this.GetOppositeSide(j), aGuessHasBeenMade);
+						}
+					}
+				}
+			}
+		}
+		
+		// draw x's between same sidded cells, and lines between opposite sidded cells
+		for (var i = 0; i < markIdsToCheck.length; i++) {
+			if (markIdsToCheck[i] && !this.Marks[i].IsMarked) {
+				var mark = this.Marks[i];
+				var side1 = 0;
+				var side2 = mark.Cells[0].Side;
+				if (mark.Cells.length > 1) {
+					side1 = Math.min(mark.Cells[0].Side, mark.Cells[1].Side);
+					side2 = Math.max(mark.Cells[0].Side, mark.Cells[1].Side);
+				}
+				
+				if (side1 > -1 && side2 > -1) {
+					if (side1 == side2 || 
+					   (side2 == 0 && side1 == 0)) {
+						// if the cells on either side are the same, mark an x
+						this.MarkX(mark, aGuessHasBeenMade);
+						changeMade = true;
+					} else if (side1 != side2 && side2 - side1 == 1 && side1 % 2 == 0) {
+						// if the cells on either side are different (but in the same side family), mark a line
+						this.MarkLine(mark, aGuessHasBeenMade);
+						changeMade = true;
+					}
+				}
+			}
+		}
+			
+		return changeMade;
+	},
+		
+	// Will will prevent the final loop from closing, so be cautious when you run this function
+	KeepLoopsOpen: function(aGuessHasBeenMade) {
+		// find possible loop start
+		for (var i = 1; i < this.Dots.length; i++)
+		{
+			var loopStart = this.Dots[i];
+			var loopEnds = new Array();
+			if (loopStart.NumLines == 1)
+			{
+				var lineEnd = this.FollowLine(loopStart).lastDot;
+				
+				// check if lineEnd is one un-marked Mark away from loopStart;
+				for (var g = 0; g < loopStart.Marks.length; g++)
+				{
+					var mark = loopStart.Marks[g];
+					if (!mark.IsMarked) {
+						if (mark.Dots.indexOf(lineEnd) >= 0) {
+							// possible loop detected! Mark an X to keep that sucker open!
+							this.MarkX(mark, aGuessHasBeenMade);
+							return true;
+						}
+					}
+				}
+			}
+		}
+	
+		return false;
+	},
+	
+	// Goes through the un-marked marks and tries a line or an x in that spot
+	// Then makes as many basic logic moves (no more guesses) as it can and checks if the board is in a valid state
+	// If the board is not valid, you know that the mark must be the oposite of whatever guess you put there
+	// If both mark types result in a valid board, look at the subsequent logic marks that were made, 
+	//   if there were any that were the same either way, go ahead and make those changes
+	// This is slow
 	FindNextChangeBasedOnGuessing: function() {
 		if (this.NumMarkedMarks == this.Marks.length) {
 			return false;
@@ -357,6 +590,8 @@ var SLSolver = {
 		return false;
 	},
 	
+	// run the basic logic rules after a guess has been made until there are no more moves to make
+	// keeps track of the moves made
 	RunLogicBasedOnAGuess: function() {
 		var boardState = this.IsValidBoard();
 		var numLogicMovesMade = 0;
@@ -372,251 +607,7 @@ var SLSolver = {
 		return {isValid:boardState.isValid, isComplete:boardState.isComplete, movesMade:numLogicMovesMade};
 	},
 	
-	CompleteCells: function(aGuessHasBeenMade) {
-		var changeMade = false;
-		for (var i = 0; i < this.Cells.length; i++) {
-			var cell = this.Cells[i];
-			
-			if (!cell.IsFull) {
-				// mark the rest x's
-				if ((cell.Value != null && cell.Value == cell.NumLines) || cell.NumLines == cell.Marks.length - 1) {
-					for (var m = 0; m < cell.Marks.length; m++) {
-						var mark = cell.Marks[m];
-						if (!mark.IsMarked) {
-							this.MarkX(mark, aGuessHasBeenMade);
-							changeMade = true;
-						}
-					}
-				}
-			
-				// mark the rest lines
-				if (cell.Value != null && cell.Value == cell.Marks.length - cell.NumXs) {
-					for (var m = 0; m < cell.Marks.length; m++) {
-						var mark = cell.Marks[m];
-						if (!mark.IsMarked) {
-							this.MarkLine(mark, aGuessHasBeenMade);
-							changeMade = true;
-						}
-					}
-				}
-			}
-		}
-		
-		return changeMade;
-	},
-	
-	CompleteDots: function(aGuessHasBeenMade) {
-		var changeMade = false;
-		
-		for (var i = 0; i < this.Dots.length; i++) {
-			var dot = this.Dots[i];
-			if (!dot.IsFull) {
-				var fillTheRest = false;
-				var fillWithXs = false;
-				if (dot.NumLines == 2 || dot.NumXs == dot.Marks.length - 1) {
-					// fill the rest with x's
-					fillTheRest = true;
-					fillWithXs = true;
-				} else if (dot.NumXs == dot.Marks.length - 2 && dot.NumLines == 1) {
-					// fill the last spot with a line
-					fillTheRest = true;
-					fillWithXs = false;
-				}
-				
-				if (fillTheRest) {
-					for (var m = 0; m < dot.Marks.length; m++) {
-						var mark = dot.Marks[m];
-						if (!mark.IsMarked) {
-							if (fillWithXs) {
-								this.MarkX(mark, aGuessHasBeenMade);
-							} else {
-								this.MarkLine(mark, aGuessHasBeenMade);
-							}
-						}
-					}
-					
-					changeMade = true;
-				}
-			}
-		}
-		
-		return changeMade;
-	},
-	
-	// if the cell's an outside cell and on the edge, mark an x
-	// if the cells an inside cell and on the edge, mark a line
-				
-	// if the cells on either side are the same, mark an x
-	// if the cells on either side are different (but in the same side family), mark a line
-				
-	// based on cell's value and the number counts of various sides we can make some marks
-	ApplyInsideOutsideLogic: function(aGuessHasBeenMade) {
-		var changeMade = false;
-		var cellIdsToCheck = [];
-		var markIdsToCheck = [];
-		if (this.JustChangedMarks.length > 0) {
-			for (var i = 0; i < this.JustChangedMarks.length; i++) {
-				var mark = this.JustChangedMarks[i];
-				for (var j = 0; j < mark.Cells.length; j++) {
-					var cell = mark.Cells[j];
-					cellIdsToCheck[cell.Id] = true;
-					for (var k = 0; k < cell.Marks.length; k++) {
-						markIdsToCheck[cell.Marks[k].Id] = true;
-					}	
-				}
-			}
-		} else {
-			cellIdsToCheck = new Array(this.Cells.length);
-			markIdsToCheck = new Array(this.Marks.length);
-			cellIdsToCheck.fill(true);
-			markIdsToCheck.fill(true);
-		}
-		
-		for (var i = 0; i < markIdsToCheck.length; i++) {
-			if (markIdsToCheck[i]) {
-				var mark = this.Marks[i];
-				if (!mark.IsMarked) {
-					var side1 = mark.Cells[0].Side;
-					var side2 = null;
-					if (mark.Cells.length > 1) {
-						side1 = Math.min(mark.Cells[0].Side, mark.Cells[1].Side);
-						side2 = Math.max(mark.Cells[0].Side, mark.Cells[1].Side);
-					}
-					
-					if (side1 > -1 && (side2 == null || side2 > -1)) {
-						if (side1 == side2 || 
-						   (side2 == null && side1 == 0)) {
-							// if the cells on either side are the same, mark an x
-							// if the cell's an outside cell and on the edge, mark an x
-							this.MarkX(mark, aGuessHasBeenMade);
-							changeMade = true;
-						} else if ((side2 == null && side1 == 1) || 
-								   (side2 != null && side1 != side2 && side2 - side1 == 1 && side1 % 2 == 0)) {
-							// if the cells an inside cell and on the edge, mark a line
-							// if the cells on either side are different (but in the same side family), mark a line
-							this.MarkLine(mark, aGuessHasBeenMade);
-							changeMade = true;
-						}
-					}
-				}
-			}
-		}
-		
-		if (changeMade) {
-			return true;	
-		}
-		
-		for (var i = 0; i < cellIdsToCheck.length; i++) {
-			if (cellIdsToCheck[i]) {
-				var cell = this.Cells[i];
-				if (cell.Value != null && !cell.IsFull) {
-					var sideCounts = [];
-					for (var j = 0; j < cell.Marks.length; j++) {
-						var otherCell = cell.Marks[j].TheOtherCell(cell)
-						var otherSide = 0;
-						if (otherCell != null) otherSide = otherCell.Side;
-						if (otherSide > -1) {
-							if (!sideCounts[otherSide]) {
-								sideCounts[otherSide] = [];
-							} 
-							
-							sideCounts[otherSide].push(cell.Marks[j]);
-						}
-					}
-					
-					for (var j = 0; j < sideCounts.length; j++) {
-						// if there are more than cell.Value cells adjacent to this one with the same side value, then there must be x's in those sides
-						// if there are more than numSides - value cells adjacent to this one with the same side value, then there must be lines in those sides
-						if (sideCounts[j]) {
-							var sideCount = sideCounts[j].length;
-							if (sideCount > cell.Value) {
-								for (var k = 0; k < sideCount; k++) {
-									var mark = sideCounts[j][k];
-									if (!mark.IsMarked) {
-										this.MarkX(mark, aGuessHasBeenMade);
-										changeMade = true;
-									}
-								}
-							} else if ((cell.Marks.length - cell.Value) < sideCount) {
-								for (var k = 0; k < sideCount; k++) {
-									var mark = sideCounts[j][k];
-									if (!mark.IsMarked) {
-										this.MarkLine(mark, aGuessHasBeenMade);	
-										changeMade = true;
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-		
-		return changeMade;
-	},
-	
-	// TODO: if cells had a list of dots, this code could be re-factored
-	ApplySpecialRules: function(aGuessHasBeenMade) {
-		// cell needs two lines, and has a dot with two x's (not on the cell) already in place
-		for (var i = 0; i < this.Cells.length; i++) {
-			var cell = this.Cells[i];
-			if (cell.Value != null) {
-				var linesStillNeeded = cell.Value - cell.NumLines;
-				if (linesStillNeeded >= 2 && cell.NumUnmarked == linesStillNeeded + 1) {
-					var possibleDots = [];
-					for (var j = 0; j < cell.Marks.length; j++) {
-						var mark = cell.Marks[j];
-						if (!mark.IsMarked) {
-							// look at both dots, if one has only two open lines, and both of those lines are on this cell, then mark them both as lines
-							for (var k = 0; k < mark.Dots.length; k++) {
-								var dot = mark.Dots[k];
-								if (dot.NumUnmarked == 2 && dot.NumLines == 0) {
-									if (possibleDots[dot.Id]) {
-										this.MarkLine(mark, aGuessHasBeenMade);
-										return true;	
-									} else {
-										possibleDots[dot.Id] = true;	
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-		
-		return false;
-	},
-	
-	// Will will prevent the final loop from closing, so be cautious when you run this function
-	KeepLoopsOpen: function(aGuessHasBeenMade) {
-		// find possible loop start
-		for (var i = 1; i < this.Dots.length; i++)
-		{
-			var loopStart = this.Dots[i];
-			var loopEnds = new Array();
-			if (loopStart.NumLines == 1)
-			{
-				var lineEnd = this.FollowLine(loopStart).lastDot;
-				
-				// check if lineEnd is one un-marked Mark away from loopStart;
-				for (var g = 0; g < loopStart.Marks.length; g++)
-				{
-					var mark = loopStart.Marks[g];
-					if (!mark.IsMarked) {
-						if (mark.Dots.indexOf(lineEnd) >= 0) {
-							// possible loop detected! Mark an X to keep that sucker open!
-							this.MarkX(mark, aGuessHasBeenMade);
-							return true;
-						}
-					}
-				}
-			}
-		}
-	
-		return false;
-	},
-	
+	// looks for loops in the marked lines, returns true if a loop has been found
 	FindSubLoop: function() {
 		var dotsChecked = [];
 		
@@ -644,10 +635,8 @@ var SLSolver = {
 		return false;
 	},
 	
-	// Assumes that startingDot has no more than one line out of it
 	// If the startingDot has no lines coming out of it, returns startingDot
-	// Follows the lines and returns the last Dot it comes to
-	// If startingDot is in the middle of a loop, returns null
+	// Follows the lines and returns the last Dot it comes to, or in the case of a loop returns startingDot, but dotsTouched will have more than one dot id in it
 	FollowLine: function(startingDot) {
 		var currentDot = startingDot;
 		var lastLine = null;
@@ -671,10 +660,9 @@ var SLSolver = {
 				return {lastDot:currentDot, dotsTouched:dotsTouched};
 			}
 			
-			lastLine = nextLine;
-			
 			// move currentDot
-			currentDot = lastLine.TheOtherDot(currentDot);
+			currentDot = nextLine.TheOtherDot(currentDot);
+			lastLine = nextLine;
 			
 			if (currentDot == startingDot) {
 				// this dot is part of a loop
@@ -683,6 +671,8 @@ var SLSolver = {
 		}
 	},
 	
+	// marks the specified mark as a line
+	// also does some updating to the current SidePairCount for assigning sides to cells if we don't know yet if they're inside or outside
 	MarkLine: function(mark, aGuessHasBeenMade) {
 		if (aGuessHasBeenMade) {
 			this.JustChangedMarks.push(mark);
@@ -691,6 +681,8 @@ var SLSolver = {
 		this.SidePairCount = mark.MarkLine(aGuessHasBeenMade, this.SidePairCount);
 	},
 	
+	// marks the specified mark as an x
+	// also does some updating to the current SidePairCount for assigning sides to cells if we don't know yet if they're inside or outside
 	MarkX: function(mark, aGuessHasBeenMade) {
 		if (aGuessHasBeenMade) {
 			this.JustChangedMarks.push(mark);
@@ -699,6 +691,11 @@ var SLSolver = {
 		this.SidePairCount = mark.MarkX(aGuessHasBeenMade, this.SidePairCount);
 	},
 	
+	// Checks if the current board state is valid
+	// returns {isValid, isComplete}
+	// looks at all the cells and sees if they're valid,
+	// looks at all the dots and sees if they're valid too
+	// if this determines that all the marks are marked will return isComplete:true
 	IsValidBoard: function() {
 		var isComplete = true;
 		for (var i = 0; i < this.Cells.length; i++) {
@@ -724,6 +721,7 @@ var SLSolver = {
 		}
 	},
 	
+	// reverts the board back to it's pre-guess state
 	ClearGuesses: function() {
 		var marks = {lines:[], xs:[]};
 		for (var i = 0; i < this.Marks.length; i++) {
@@ -747,4 +745,14 @@ var SLSolver = {
 		this.JustChangedMarks = [];
 		return marks;
 	},
+	
+	// return the companion side to the specified side
+	// 0 and 1 go together, 2 and 3 go together etc
+	GetOppositeSide: function(side) {
+		if (side % 2 == 0) {
+			return side + 1;	
+		} else {
+			return side - 1;	
+		}
+	}
 };

@@ -1,31 +1,30 @@
+// This is the setup for a generalized slitherlink
 // TODO: make the UI a little cleaner. Don't show the puzzle area until they've entered a width and height
 // TODO: make some little diagrams for each puzzle type, also include how to measure width and height when it might not be obvious
 // TODO: make a "draw board" option where they enter the number of sides for each cell... oh boy...
-// TODO: make an easier way to get the JSON for the current board
 // TODO: makde an un-delete button...
-
-// This is the setup for a generalized slitherlink
+// TODO: Step-back doesn't undo Side assignments, so it's pretty useless right now... maybe we should just get rid of it
+// TODO: highlight stays on when cursor is still on the canvas, but on an empty, non-celled space
+// TODO: the "thinking..." text doesn't work very well when tapping on a key pad instead of using a mouse
+// TODO: once you start solving can no longer enter numbers... or highlight un-highlights and draws a marked cell correctly
 
 var NumRows;
 var NumCols;
 var BoardWidth;
 var BoardHeight;
 var CellType;
-
-//cell = {x, y, corners, lines, top, bottom, left, right, content, id, originalId}
-var Cells;
-
+var Cells; //cell = {x, y, corners, lines, top, bottom, left, right, content, id, originalId}
 var CurrentBoard;
 var CurrentlyMarkedMarks;
 var Steps;
-
 var DeletingCells;
 var HighlightedCell;
 
 window.onload = setupDOM;
 
+// connect all the mouse events to their respective functions
 function setupDOM() {
-	nullOut();
+	reset();
 	
 	$("#Thinking").hide();
 	$("#GuessDepth").hide();
@@ -34,18 +33,15 @@ function setupDOM() {
 	$("#BoardCanvas").click(boardClick);
 	$("#BoardCanvas").mousemove(boardHover);
 	$("#BoardCanvas").mouseout(unHighlight);
-	//$("#SolveButton").click(solveAll);
-	//$("#StepButton").click(step);
-	$("#SolveButton").on("mousedown",function(){$("#GuessDepth").hide();$("#Thinking").show();}).on("mouseup", solveAll);
-	$("#StepButton").on("mousedown",function(){$("#GuessDepth").hide();$("#Thinking").show();}).on("mouseup", step);
-
-	
 	$("#StepBackButton").click(stepBack);
 	$("#EnterSavedBoard").click(enterSavedBoard);
 	$("#GetBoard").click(getBoardJSON);
+	$("#SolveButton").on("mousedown", function(){$("#GuessDepth").hide();$("#Thinking").show();}).on("mouseup", solveAll);
+	$("#StepButton").on("mousedown", function(){$("#GuessDepth").hide();$("#Thinking").show();}).on("mouseup", step);
 }
 
-function nullOut() {
+// Reset everything
+function reset() {
 	NumRows = 0;
 	NumCols = 0;
 	BoardWidth = 0;
@@ -60,8 +56,10 @@ function nullOut() {
 	unHighlight();
 }
 
+// Called when the "OK" button is clicked and the user has entered some dimensions for the board they want to work on
+// Draws the initial canvas, and initilizes our array of cells
 function enterBoardDimensions() {
-	nullOut();
+	reset();
 	NumRows = parseInt($("#BoardWidth").val(), 10);
 	NumCols = parseInt($("#BoardHeight").val(), 10);
 	CellType = parseInt($("#BoardType").val(), 10);
@@ -78,6 +76,8 @@ function enterBoardDimensions() {
 	} 
 }
 
+// Called when the "Delete Cells" checkbox is clicked
+// sets a global variable DeletingCells to tell us whether or not to delete cells when the user clicks on them
 function delteButtonClicked() {
 	DeletingCells = $("#DeleteCells").is(":checked");
 	if (!DeletingCells) {
@@ -85,6 +85,9 @@ function delteButtonClicked() {
 	}
 }
 
+// Called when the user clicks on the canvas
+// If the "Delete Cells" checkbox is checked the cell will be deleted from the canvas and removed from the array
+// If the "Delete Cells" checkbox is NOT checked, then the cell will be assigned the value that the user has entered into the value text box
 function boardClick(clickEvent) {
 	var x = clickEvent.offsetX;
 	var y = clickEvent.offsetY;
@@ -92,8 +95,10 @@ function boardClick(clickEvent) {
 	
 	if (cell != null) {
 		if (DeletingCells) {
+			// Delete the cell
 			deleteCell(cell);
 		} else {
+			// Enter a new value into the cell
 			var cellContent = parseInt($("#EnterCellValue").val(), 10);
 			if (isNaN(cellContent)) cellContent = null;
 			
@@ -111,6 +116,9 @@ function boardClick(clickEvent) {
 	}
 }
 
+// Removes the cell from the canvas and from the array
+// Updates all the remaining cell ids in the array so that their id == their array index
+// Note: each cell still has an "original id" that tells us where it was in the initial board layout
 function deleteCell(cell) {
 	unHighlight();
 	var position = cell.id;
@@ -123,39 +131,56 @@ function deleteCell(cell) {
 	redrawBoard();
 }
 
+// Called when the mouse is hovering over the board
+// If "Delete Cells" is checked the cell currently being hovered over will turn red
+// If "Delete Cells" is NOT checked, the cell currently being hovered over will turn yellow
 function boardHover(event) {
-	if (DeletingCells) {
-		var x = event.offsetX;
-		var y = event.offsetY;
-		var cell = findCell(x, y);
-		if (cell != null) {
-			highlightCell(cell);
+	var x = event.offsetX;
+	var y = event.offsetY;
+	var cell = findCell(x, y);
+	if (cell != null) {
+		if (DeletingCells) {
+			highlightCell(cell, "red");
+		} else {
+			highlightCell(cell, "yellow");
 		}
-	}	
+	}
 }
 
+// Called when the "step" button is clicked
+// Runs the Solver logic only for one logical step
+// Good for debugging the solver
 function step() {
 	solve(true);
 }
 
+// Called when the "solve" button is clicked
+// Runs the Solver until it has completed the puzzle or until it can't make any more logical moves
 function solveAll() {
 	solve(false);	
 }
 
+// Runs the solver
+// Can either run it just for one step or until no more logical moves are available
+// Saves the CurrentBoard state
+// Times the solver and displays the time passed once the solver returns
+// Displays how "deep" any guesses made had to go before being able to make a move
 function solve(goOneStep) {
 	var board = CurrentBoard;
 	if (board == null) {
 		board = readBoardContents();
 	}
 	
-	$("#GuessDepth").hide();	
+	$("#GuessDepth").hide();
+		
 	var startTime = Date.now();
 	var solution = SLSolver.Solve(board, goOneStep);
 	var endTime = Date.now();
-	drawSoutionBoard(solution, goOneStep, solution.MaxGuessingDepthReached >= 0);
-	$("#Thinking").hide();
-	CurrentBoard = solution;
 	
+	CurrentBoard = solution;
+	drawSoutionBoard(solution, goOneStep, solution.MaxGuessingDepthReached >= 0);
+	
+	$("#Thinking").hide();
 	if (solution.MaxGuessingDepthReached >= 0) {
 		$("#GuessDepth").text("Guess made at depth: " + solution.MaxGuessingDepthReached);
 		$("#GuessDepth").show();	
@@ -169,6 +194,8 @@ function solve(goOneStep) {
 	$("#Time").text(endTime - startTime + " miliseconds");
 }
 
+// Called when the "step back" button is clicked
+// Rolls the board state back one step
 function stepBack() {
 	var canvas = document.getElementById("BoardCanvas")
 	var context = canvas.getContext("2d");
@@ -183,9 +210,10 @@ function stepBack() {
 	}
 }
 
-// This is the json of the contents object we pass to the solver
-// This won't change the board width or height or type, so set those manually before using this
+// called when the "Enter" button is clicked and the user has entered some saved board JSON into the text box
+// Reads the saved board JSON from the text box and initilizes the cells accordingly
 function enterSavedBoard() {
+	reset();
 	var boardJSONString = $("#SavedBoardInput").val();
 	var boardContents = JSON.parse(boardJSONString);
 	
@@ -206,6 +234,9 @@ function enterSavedBoard() {
 	}
 }
 
+// Called when the "Get board" button is clicked
+// Creates a JSON object of the current cells and their values and outputs it to the saved board textbox to be copyed and later pasted
+// Does not save any puzzle state, just cells and their values
 function getBoardJSON() {
 	var board = {width: NumRows, height:NumCols, cellType:CellType};
 	var cells = [];
@@ -232,7 +263,7 @@ function getBoardJSON() {
 	$("#SavedBoardInput").val(jsonString);
 }
 
-
+// Sets the size of the canvas depending on the puzzle type and the number of rows/columns
 function setBoardSize(canvas, cellType, numRows, numCols) {
 	if (cellType == 4) {
 		BoardWidth = numRows * 25 + 1;
@@ -249,6 +280,8 @@ function setBoardSize(canvas, cellType, numRows, numCols) {
 	canvas.height = BoardHeight;
 }
 
+// Adds a new cell to the board
+// draws the cell on the canvas and adds it to the array
 function addNewCell(context, cellType, row, col) {
 	var corners = getCorners(cellType, row, col);
 	
@@ -290,6 +323,7 @@ function addNewCell(context, cellType, row, col) {
 	}
 }
 
+// Returns the cell found at location (x, y) relative to the canvas
 function findCell(x, y) {
 	var possibleCells = [];
 	var cell;
@@ -333,7 +367,7 @@ function findCell(x, y) {
 	return null;
 }
 
-// returns an object containing Dots, Marks, and Cells arrays
+// returns an object containing Dots, Marks, and Cells arrays that can be passed to the solver
 function readBoardContents() {
 	cells = [];
 	dots = [];
@@ -418,6 +452,10 @@ function readBoardContents() {
 	return {Marks:marks, Dots:dots, Cells:cells};
 }
 
+// takes a board object that was passed from the solver, whether or not to highlight any new marks, and whether or not this new move was based on a guess
+// redraws the board accordingly
+// If we're highlighting new moves, then any line or 'x' that is not in the currently saved puzzle state will be highlihgted in green
+// if the newest move was based on a guess, then the highlight will be orange
 function drawSoutionBoard(board, highlightNew, newMoveBasedOnAGuess) {
 	var canvas = document.getElementById("BoardCanvas")
 	var context = canvas.getContext("2d");
@@ -458,26 +496,26 @@ function drawSoutionBoard(board, highlightNew, newMoveBasedOnAGuess) {
 	Steps.push(step);
 }
 
-
-// TODO: generalize this method
-// I made verticle lines not quite verticle... to save devide by zero issues later...
+// Returns the (x, y) locations of a single cell to be drawn in the canvas based on the puzzle type and the cell's location in the puzzle
+// NOTE: I made verticle lines not quite verticle... to save devide by zero issues later...
 function getCorners(cellType, row, col) {
 	if (cellType == 4) {
+		// a grid of squares
 		var x = row * 25;
 		var y = col * 25;
 		return [{x:x+25, y:y}, {x:x+26, y:y+25}, {x:x+1, y:y+25}, {x:x, y:y}];
 	} else if (cellType == 3) {
+		// triangles
 		var x = row * 17;
 		var y = col * 30;
 		
 		if ((col % 2 == 1 && row % 2 == 0) || (col % 2 == 0 && row % 2 == 1)) {
-			// rightside-up triangle
-			return [{x:x+17, y:y}, {x:x+34, y:y+30}, {x:x, y:y+30}];
+			return [{x:x+17, y:y}, {x:x+34, y:y+30}, {x:x, y:y+30}]; // rightside-up triangle
 		} else {
-			// upside-down triangle
-			return [{x:x, y:y}, {x:x+34, y:y}, {x:x+17, y:y+30}];
+			return [{x:x, y:y}, {x:x+34, y:y}, {x:x+17, y:y+30}]; // upside-down triangle
 		}	
 	} else if (cellType == 6) {
+		// hexagons
 		var x = row * 37;
 		var y = col * 42;
 		
@@ -489,6 +527,7 @@ function getCorners(cellType, row, col) {
 	}
 }
 
+// Returns the center point of all the passed (x, y) points
 // points is an array of {x, y} objects
 // returns an {x, y} object where x and y are ints. if the true center contains a decimal point it has simply been stripped off...
 function getCenterPoint(points) {
@@ -502,6 +541,7 @@ function getCenterPoint(points) {
 	return {x:Math.floor(sumX / points.length), y:Math.floor(sumY / points.length)};
 }
 
+// returns an object with {m, b} that defines a y = mx + b line that intersects the two passed points
 function getLine(x1, y1, x2, y2) {
 	var m = (y1 - y2) / (x1 - x2);
 	var b = y1 - (m * x1);
@@ -509,20 +549,14 @@ function getLine(x1, y1, x2, y2) {
 	return {m:m, b:b}; 	
 }
 
+// Returns the (x, y) point of the intersect between the two passed y = mx + b lines
 function findIntersect(m1, b1, m2, b2) {
-	// y = mx + b
-	// y1 = y2
-	// m1x + b1 = m2x + b2
-	// m1x - m2x = b2 - b1
-	// (m1-m2)x = b2 - b1
-	// x = (b2 - b1) / (m1 - m2)
-	// y = m1x + b1
-	
 	var x = (b2 - b1) / (m1 - m2);
 	var y = (m1 * x) + b1;
 	return {x:x, y:y}; 
 }
 
+// Redraws a board with all the current cells and their values, but no lines or 'x's
 function redrawBoard() {
 	var canvas = document.getElementById("BoardCanvas");
 	var context = canvas.getContext("2d");
@@ -532,6 +566,7 @@ function redrawBoard() {
 	}	
 }
 
+// draws a single empty cell with its value to the canvas
 function drawEmptyCell(cell) {
 	var context = document.getElementById("BoardCanvas").getContext("2d");
 	fillCell(context, cell, "white");
@@ -541,10 +576,12 @@ function drawEmptyCell(cell) {
 	}
 }
 
-function highlightCell(cell) {
+// fills a cell with the specified color
+// there will only be one highlighted cell at a time, so if one is currently highlighted, this will un highlight it
+function highlightCell(cell, color) {
 	unHighlight();
 	var context = document.getElementById("BoardCanvas").getContext("2d");
-	fillCell(context, cell, "yellow");
+	fillCell(context, cell, color);
 	
 	if (cell.content != null) {
 		drawNumber(context, cell.content, cell);
@@ -553,6 +590,7 @@ function highlightCell(cell) {
 	HighlightedCell = cell;
 }
 
+// unhighlights the currently highlighted cell
 function unHighlight() {
 	var cell = HighlightedCell;
 	if (cell != null) {
@@ -567,10 +605,11 @@ function unHighlight() {
 	}
 }
 
+// fills the cell with the specified color and draws grey outline
 function fillCell(context, cell, color) {
 	var corners = cell.corners;
 	context.fillStyle = color;
-	context.strokeStyle = "gray";
+	context.strokeStyle = "lightgray";
 	context.beginPath();
 	context.moveTo(corners[corners.length - 1].x, corners[corners.length - 1].y);
 	for (var i = 0; i < corners.length; i++) {
@@ -582,6 +621,7 @@ function fillCell(context, cell, color) {
 	context.stroke();
 }
 
+// draws a number in a cell
 function drawNumber(context, number, cell) {
 	// get the height and make font size to fit
 	var height = cell.bottom - cell.top;
@@ -593,6 +633,7 @@ function drawNumber(context, number, cell) {
 	context.fillText(number, cell.x, cell.y);
 }
 
+// draws a red dot at the (x,y) location. optionaly highlights it
 function drawX(context, x, y, highlight = false, highlightColor = "green") {
 	if (highlight) {
 		context.fillStyle = highlightColor;
@@ -607,6 +648,7 @@ function drawX(context, x, y, highlight = false, highlightColor = "green") {
 	context.fillRect(x-2, y-2, 4, 4);
 }
 
+// draws a line between the two specified points, optionally highlights it and optionally you can choose the color
 function drawLine(context, x1, y1, x2, y2, highlight = false, highlightColor = "green", color = "black") {
 	if (highlight) {
 		context.strokeStyle = highlightColor;	
@@ -628,6 +670,7 @@ function drawLine(context, x1, y1, x2, y2, highlight = false, highlightColor = "
 	context.stroke();
 }
 
+// draw any sort of text at the (x, y) location
 function drawDebugText(context, text, x, y, color, size) {
 	context.beginPath();
 	context.font = size + "px monoface";
