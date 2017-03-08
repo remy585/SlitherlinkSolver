@@ -1,12 +1,13 @@
 // This is the setup for a generalized slitherlink
-// TODO: make the UI a little cleaner. Don't show the puzzle area until they've entered a width and height
-// TODO: make some little diagrams for each puzzle type, also include how to measure width and height when it might not be obvious
-// TODO: make a "draw board" option where they enter the number of sides for each cell... oh boy...
-// TODO: makde an un-delete button...
-// TODO: Step-back doesn't undo Side assignments, so it's pretty useless right now... maybe we should just get rid of it
-// TODO: highlight stays on when cursor is still on the canvas, but on an empty, non-celled space
-// TODO: the "thinking..." text doesn't work very well when tapping on a key pad instead of using a mouse
-// TODO: once you start solving can no longer enter numbers... or highlight un-highlights and draws a marked cell correctly
+// TODO (M): make some little diagrams for each puzzle type, also include how to measure width and height when it might not be obvious
+// TODO (XL): make a "draw board" option where they enter the number of sides for each cell... oh boy...
+// TODO (M): makde an un-delete button...
+// TODO (M): Step-back doesn't undo Side assignments, so it's pretty useless right now... maybe we should just get rid of it
+// TODO (S): highlight stays on when cursor is still on the canvas, but on an empty, non-celled space
+// TODO (M): the "thinking..." text doesn't work very well when tapping on a key pad instead of using a mouse
+// TODO (S): once you start solving can no longer enter numbers... or highlight un-highlights and draws a marked cell correctly
+// TODO (M): entering a semi-large saved board takes about 4 seconds... why??
+// TODO (S): hexagons are a little too big, maybe scale them down to 2/3's current size?
 
 var NumRows;
 var NumCols;
@@ -19,8 +20,9 @@ var CurrentlyMarkedMarks;
 var Steps;
 var DeletingCells;
 var HighlightedCell;
+var EditMode; // "None", "DeleteCells", "AddValue"
 
-window.onload = setupDOM;
+$(document).ready(setupDOM);
 
 // connect all the mouse events to their respective functions
 function setupDOM() {
@@ -29,13 +31,15 @@ function setupDOM() {
 	$("#Thinking").hide();
 	$("#GuessDepth").hide();
 	$("#EnterBoardDimensions").click(enterBoardDimensions);
-	$("#DeleteCells").click(delteButtonClicked);
+	$("input:radio[name='edit']").change(editModeChanged);
 	$("#BoardCanvas").click(boardClick);
 	$("#BoardCanvas").mousemove(boardHover);
 	$("#BoardCanvas").mouseout(unHighlight);
 	$("#StepBackButton").click(stepBack);
 	$("#EnterSavedBoard").click(enterSavedBoard);
-	$("#GetBoard").click(getBoardJSON);
+	$("#SaveBoard").click(getBoardJSON);
+	$("#EditBoardButton").click(editModeChanged);
+	$("#EditBoardOK").click(function(){EditMode = "None";});
 	$("#SolveButton").on("mousedown", function(){$("#GuessDepth").hide();$("#Thinking").show();}).on("mouseup", solveAll);
 	$("#StepButton").on("mousedown", function(){$("#GuessDepth").hide();$("#Thinking").show();}).on("mouseup", step);
 }
@@ -52,7 +56,7 @@ function reset() {
 	CurrentlyMarkedMarks = [];
 	Steps = [];
 	DeletingCells = false;
-	$("#DeleteCells").prop("checked", false);
+	EditMode = "None";
 	unHighlight();
 }
 
@@ -73,14 +77,16 @@ function enterBoardDimensions() {
 		for (var x = 0; x < NumRows; x++) {
 			addNewCell(context, CellType, x, y);
 		}
-	} 
+	}
+	
+	editModeChanged();
 }
 
 // Called when the "Delete Cells" checkbox is clicked
 // sets a global variable DeletingCells to tell us whether or not to delete cells when the user clicks on them
-function delteButtonClicked() {
-	DeletingCells = $("#DeleteCells").is(":checked");
-	if (!DeletingCells) {
+function editModeChanged() {
+	EditMode = $("input:radio[name='edit']:checked").val();
+	if (EditMode == "None") {
 		unHighlight();	
 	}
 }
@@ -94,12 +100,12 @@ function boardClick(clickEvent) {
 	var cell = findCell(x, y);
 	
 	if (cell != null) {
-		if (DeletingCells) {
+		if (EditMode == "DeleteCells") {
 			// Delete the cell
 			deleteCell(cell);
-		} else {
+		} else if (EditMode == "AddValue") {
 			// Enter a new value into the cell
-			var cellContent = parseInt($("#EnterCellValue").val(), 10);
+			var cellContent = parseInt($("#CellValue").val(), 10);
 			if (isNaN(cellContent)) cellContent = null;
 			
 			if (cellContent > CellType) {
@@ -135,14 +141,16 @@ function deleteCell(cell) {
 // If "Delete Cells" is checked the cell currently being hovered over will turn red
 // If "Delete Cells" is NOT checked, the cell currently being hovered over will turn yellow
 function boardHover(event) {
-	var x = event.offsetX;
-	var y = event.offsetY;
-	var cell = findCell(x, y);
-	if (cell != null) {
-		if (DeletingCells) {
-			highlightCell(cell, "red");
-		} else {
-			highlightCell(cell, "yellow");
+	if (EditMode != "None") {
+		var x = event.offsetX;
+		var y = event.offsetY;
+		var cell = findCell(x, y);
+		if (cell != null) {
+			if (EditMode == "DeleteCells") {
+				highlightCell(cell, "red");
+			} else if (EditMode == "AddValue") {
+				highlightCell(cell, "limegreen");
+			}
 		}
 	}
 }
@@ -260,7 +268,7 @@ function getBoardJSON() {
 	board.cells = cells;
 	
 	var jsonString = JSON.stringify(board);
-	$("#SavedBoardInput").val(jsonString);
+	$("#SavedBoardOutput").val(jsonString);
 }
 
 // Sets the size of the canvas depending on the puzzle type and the number of rows/columns
