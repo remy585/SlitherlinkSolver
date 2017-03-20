@@ -2,10 +2,6 @@
 <html> 
 	<head> 
 		<title>Slitherlink Solver</title> 
-		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
-		<script src="SlitherlinkSetup.js" type="text/javascript"></script>
-		<script src="SlitherlinkUIFlow.js" type="text/javascript"></script>
-		<script src="SlitherlinkSolver.js" type="text/javascript"></script> 
 		<meta charset="utf-8"/>
 	</head> 
 	<body>
@@ -73,13 +69,16 @@
 			<div id="SaveBoardArea">
 				<div>Copy and paste this string for safe keeping.</div>
 				<div>This only saves the initial board state, it doesn't save any puzzle progress</div>
-				<textarea id="SavedBoardOutput" value=""></textarea>
+				<textarea id="SavedBoardOutput" value="" rows="20"></textarea>
 				<button type="button" id="DoneSaving">I'm done, go back</button>
 			</div>
 			<div>
 			<canvas id="BoardCanvas" width="200" height="100"></canvas>
 			</div>
-					
 		</div>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+		<script src="SlitherlinkSetup.js" type="text/javascript"></script>
+		<script src="SlitherlinkUIFlow.js" type="text/javascript"></script>
+		<script src="SlitherlinkSolver.js" type="text/javascript"></script> 
 	</body>
 </html>
