@@ -475,13 +475,13 @@
         for (var i = 0; i < board.Cells.length; i++) {
             var cell = board.Cells[i];
             if (cell.Side == 0) {
-                fillCell(context, this.Cells[cell.Id], "lightblue");	
+                fillCell(context, Cells[cell.Id], "lightblue");	
             } else if (cell.Side == 1) {
-                fillCell(context, this.Cells[cell.Id], "yellow");	
+                fillCell(context, Cells[cell.Id], "yellow");	
             }
             
             if (cell.Value != null && (cell.Side == 0 || cell.Side == 1)) {
-                drawNumber(context, cell.Value, this.Cells[cell.Id]);	
+                drawNumber(context, cell.Value, Cells[cell.Id]);	
             }
         }
         
