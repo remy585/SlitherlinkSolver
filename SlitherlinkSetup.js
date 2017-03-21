@@ -43,6 +43,7 @@
         $("#EditBoardOK").click(function(){EditMode = "None";});
         $("#SolveButton").on("mousedown", function(){$("#GuessDepth").hide();$("#Thinking").show();}).on("mouseup", solveAll);
         $("#StepButton").on("mousedown", function(){$("#GuessDepth").hide();$("#Thinking").show();}).on("mouseup", step);
+        $(document).keypress(numberPressed);
     }
 
     // Reset everything
@@ -90,6 +91,16 @@
         if (EditMode == "None") {
             unHighlight();	
         }
+    }
+    
+    // Called when the user presses a key on the keyboard
+    // Automatically changes the number to be entered in the board without them needing to click into the "Enter value" input box.
+    function numberPressed(event) {
+    	var key = event.which - 48;
+    	var target = $(document.activeElement);
+		if (!target.is("input") && key >= 0 && key <= 9 && EditMode == "AddValue") {
+			$("#CellValue").val(key);
+		} 
     }
 
     // Called when the user clicks on the canvas
